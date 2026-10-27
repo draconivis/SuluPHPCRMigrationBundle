@@ -75,7 +75,11 @@ final class PropertyValueResolver
             return $value;
         }
 
-        if ('smart_content' === $fieldType && \is_array($decoded)) {
+        // A smart content without a "provider" param uses the pages provider in Sulu 2
+        if ('smart_content' === $fieldType
+            && \is_array($decoded)
+            && 'media' === $this->fieldTypeDetector->getOption($documentType, $property->getName(), $node, 'provider')
+        ) {
             return $this->migrateSmartContentTypes($decoded);
         }
 

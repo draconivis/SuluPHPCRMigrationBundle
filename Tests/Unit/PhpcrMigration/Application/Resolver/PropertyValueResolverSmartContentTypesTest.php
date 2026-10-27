@@ -29,14 +29,14 @@ final class PropertyValueResolverSmartContentTypesTest extends TestCase
 
     public function testMapsTheMediaTypeIdsToTheTypeNames(): void
     {
-        $resolved = $this->resolve('smart_content', '{"dataSource":21,"types":[1,2,3,4],"categories":[1650,23]}');
+        $resolved = $this->resolve('smart_content', '{"dataSource":21,"types":[1,2,3,4],"categories":[1650,23]}', 'media');
 
         self::assertSame(['dataSource' => 21, 'types' => ['document', 'image', 'video', 'audio'], 'categories' => [1650, 23]], $resolved);
     }
 
     public function testMapsASingleTypeId(): void
     {
-        $resolved = $this->resolve('smart_content', '{"types":[1]}');
+        $resolved = $this->resolve('smart_content', '{"types":[1]}', 'media');
 
         self::assertSame(['types' => ['document']], $resolved);
     }
@@ -47,7 +47,7 @@ final class PropertyValueResolverSmartContentTypesTest extends TestCase
     #[DataProvider('provideUntouchedValues')]
     public function testLeavesOtherSmartContentTypesUntouched(string $json, array $expected): void
     {
-        self::assertSame($expected, $this->resolve('smart_content', $json));
+        self::assertSame($expected, $this->resolve('smart_content', $json, 'media'));
     }
 
     /**
@@ -61,17 +61,28 @@ final class PropertyValueResolverSmartContentTypesTest extends TestCase
         yield 'no types' => ['{"dataSource":"abc"}', ['dataSource' => 'abc']];
     }
 
+    public function testOnlyTouchesSmartContentsOfTheMediaProvider(): void
+    {
+        $json = '{"dataSource":"abc","types":[1,2]}';
+        $expected = ['dataSource' => 'abc', 'types' => [1, 2]];
+
+        self::assertSame($expected, $this->resolve('smart_content', $json, 'pages'));
+        self::assertSame($expected, $this->resolve('smart_content', $json, 'articles'));
+        self::assertSame($expected, $this->resolve('smart_content', $json, null));
+    }
+
     public function testOnlyTouchesSmartContentFields(): void
     {
         self::assertSame('{"types":[1,2]}', $this->resolve('text_area', '{"types":[1,2]}'));
         self::assertSame(['types' => [1, 2]], $this->resolve(null, '{"types":[1,2]}'));
     }
 
-    private function resolve(?string $fieldType, string $json): mixed
+    private function resolve(?string $fieldType, string $json, ?string $provider = null): mixed
     {
         $node = $this->prophesize(NodeInterface::class)->reveal();
         $detector = $this->prophesize(FieldTypeDetectorInterface::class);
         $detector->getType('article', 'i18n:de-downloads', $node)->willReturn($fieldType);
+        $detector->getOption('article', 'i18n:de-downloads', $node, 'provider')->willReturn($provider);
 
         $property = $this->prophesize(PropertyInterface::class);
         $property->getName()->willReturn('i18n:de-downloads');

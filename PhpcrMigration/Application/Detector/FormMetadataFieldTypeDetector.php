@@ -28,6 +28,11 @@ class FormMetadataFieldTypeDetector implements FieldTypeDetectorInterface
      */
     private array $map = [];
 
+    /**
+     * @var array<string, array<string, bool|int|string>> Map of the same keys => scalar options (params) of the field
+     */
+    private array $options = [];
+
     private ?string $cachedTemplateNodeIdentifier = null;
 
     /**
@@ -54,6 +59,20 @@ class FormMetadataFieldTypeDetector implements FieldTypeDetectorInterface
      */
     public function getType(string $documentType, string $propertyName, NodeInterface $node): ?string
     {
+        $mappingKey = $this->resolveMappingKey($documentType, $propertyName, $node);
+
+        return null !== $mappingKey ? ($this->map[$mappingKey] ?? null) : null;
+    }
+
+    public function getOption(string $documentType, string $propertyName, NodeInterface $node, string $name): bool|int|string|null
+    {
+        $mappingKey = $this->resolveMappingKey($documentType, $propertyName, $node);
+
+        return null !== $mappingKey ? ($this->options[$mappingKey][$name] ?? null) : null;
+    }
+
+    private function resolveMappingKey(string $documentType, string $propertyName, NodeInterface $node): ?string
+    {
         $locale = $this->resolveLocale($propertyName, $node);
         if (null === $locale) {
             return null;
@@ -71,15 +90,14 @@ class FormMetadataFieldTypeDetector implements FieldTypeDetectorInterface
         }
 
         $plainPropertyName = $this->localeExtractor->stripPrefix($propertyName, $locale);
-        $mappingKey = $this->transformPropertyNameToMappingKey(
+
+        return $this->transformPropertyNameToMappingKey(
             $documentType,
             $templateKey,
             $plainPropertyName,
             $node,
             $locale,
         );
-
-        return $this->map[$mappingKey] ?? null;
     }
 
     private function resolveLocale(string $propertyName, NodeInterface $node): ?string
@@ -264,6 +282,15 @@ class FormMetadataFieldTypeDetector implements FieldTypeDetectorInterface
             }
         } else {
             $this->map[$fieldPath] = $field->getType();
+
+            foreach ($field->getOptions() as $option) {
+                $name = $option->getName();
+                $value = $option->getValue();
+
+                if (\is_string($name) && (\is_bool($value) || \is_int($value) || \is_string($value))) {
+                    $this->options[$fieldPath][$name] = $value;
+                }
+            }
         }
     }
 }
